@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MasAdit Mega Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0b0e11; color: #eaecef; font-family: sans-serif; }
+        .card-long { border-left: 4px solid #22c55e; background-color: rgba(34, 197, 94, 0.1); }
+        .card-short { border-left: 4px solid #ef4444; background-color: rgba(239, 68, 68, 0.1); }
+        .loading-bar { transition: width 0.3s ease; }
+        @keyframes pulse-green { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        .new-signal { animation: pulse-green 2s infinite; }
+    </style>
+</head>
+<body class="p-4">
+    <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
+            <div>
+                <h1 class="text-xl font-bold text-yellow-500 text-orange-400">🚀 Mas Adit Scanner</h1>
+                <p class="text-[10px] text-gray-400 uppercase tracking-widest">EMA200 0-3% + StochRSI (4H, 1H, 15M)</p>
+            </div>
+            <div class="text-right">
+                <div id="scan-status" class="text-[10px] font-mono text-blue-400">Ready</div>
+                <div class="w-32 h-1 bg-gray-800 mt-1 rounded-full overflow-hidden">
+                    <div id="progress-bar" class="loading-bar h-full bg-blue-500" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="result-container" class="space-y-3">
+            <div id="empty-state" class="text-center py-20 text-gray-600 italic">
+                Memulai pemindaian pasar...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const intervals = ['4h', '1h', '15m'];
+        const beep = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+
+        // Fungsi EMA
+        const calculateEMA = (data, p) => {
+            const k = 2 / (p + 1);
+            let ema = data[0];
+            for (let i = 1; i < data.length; i++) {
+                ema = (data[i] * k) + (ema * (1 - k));
+            }
+            return ema;
+        };
+
+        // Fungsi StochRSI Sederhana
+        const getStochRSI = (closes) => {
+            const period = 14;
+            if (closes.length < period) return 50;
+            const lastCloses = closes.slice(-period);
+            const high = Math.max(...lastCloses);
+            const low = Math.min(...lastCloses);
+            return ((closes[closes.length - 1] - low) / (high - low)) * 100;
+        };
+
+        async function getAllUSDT() {
+            try {
+                const resp = await fetch('https://api.binance.com/api/v3/exchangeInfo');
+                const data = await resp.json();
+                return data.symbols
+                    .filter(s => s.quoteAsset === 'USDT' && s.status === 'TRADING')
+                    .map(s => s.symbol);
+            } catch (e) { return []; }
+        }
+
+        async function scanCoin(symbol) {
+            let tfReports = [];
+            let isLongIdeal = true;
+            let isShortIdeal = true;
+
+            for (const tf of intervals) {
+                try {
+                    const resp = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}&limit=210`);
+                    const klines = await resp.json();
+                    const closes = klines.map(k => parseFloat(k[4]));
+                    const lastPrice = closes[closes.length - 1];
+                    
+                    const ema200 = calculateEMA(closes, 200);
+                    const stochK = getStochRSI(closes);
+                    
+                    const dist = ((lastPrice - ema200) / ema200) * 100;
+
+                    // Logika LONG: Harga di atas EMA (0-3%) & StochRSI < 20
+                    const longOk = (dist >= 0 && dist <= 3) && stochK < 20;
+                    // Logika SHORT: Harga di bawah EMA (0-3%) & StochRSI > 80
+                    const shortOk = (dist <= 0 && dist >= -3) && stochK > 80;
+
+                    tfReports.push({ tf, longOk, shortOk, dist: dist.toFixed(2) });
+                    
+                    if (!longOk) isLongIdeal = false;
+                    if (!shortOk) isShortIdeal = false;
+                } catch (e) { 
+                    isLongIdeal = false; 
+                    isShortIdeal = false; 
+                }
+            }
+
+            if (isLongIdeal || isShortIdeal) {
+                renderCard(symbol, isLongIdeal ? 'LONG' : 'SHORT', tfReports);
+                beep.play();
+            }
+        }
+
+        function renderCard(symbol, type, reports) {
+            const container = document.getElementById('result-container');
+            const emptyState = document.getElementById('empty-state');
+            if (emptyState) emptyState.remove();
+
+            // Cek biar nggak duplikat di list
+            if (document.getElementById(`card-${symbol}`)) return;
+
+            const card = document.createElement('div');
+            card.id = `card-${symbol}`;
+            card.className = `p-4 rounded-lg shadow-lg mb-3 new-signal ${type === 'LONG' ? 'card-long' : 'card-short'}`;
+            
+            card.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-lg">${symbol}</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded font-black ${type === 'LONG' ? 'bg-green-500' : 'bg-red-500'} text-black">${type}</span>
+                        </div>
+                        <div class="flex gap-4 mt-2 text-[10px] font-mono">
+                            ${reports.map(r => `
+                                <span>${r.tf}: <b class="${type === 'LONG' ? 'text-green-400' : 'text-red-400'}">${r.dist}%</b></span>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <a href="https://www.tradingview.com/chart/?symbol=BINANCE:${symbol}" target="_blank" class="bg-gray-800 p-2 rounded text-xs">Chart ↗</a>
+                </div>
+            `;
+            container.prepend(card);
+        }
+
+        async function startScanner() {
+            const statusLabel = document.getElementById('scan-status');
+            const progressBar = document.getElementById('progress-bar');
+            
+            statusLabel.innerText = "UPDATING PAIRS...";
+            const allPairs = await getAllUSDT();
+            
+            for (let i = 0; i < allPairs.length; i++) {
+                const pct = ((i / allPairs.length) * 100).toFixed(0);
+                progressBar.style.width = pct + "%";
+                statusLabel.innerText = `SCANNING ${allPairs[i]}`;
+                
+                await scanCoin(allPairs[i]);
+                await new Promise(r => setTimeout(r, 150)); // Jeda aman
+            }
+            
+            statusLabel.innerText = "COOLDOWN...";
+            setTimeout(startScanner, 10000); // Ulangi scan tiap 10 detik setelah selesai
+        }
+
+        startScanner();
+    </script>
+</body>
+</html>
