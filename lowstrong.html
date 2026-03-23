@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Screener Strong Low/High - All Pairs</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0b0e11;
+            color: #eaecef;
+            margin: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2b2f36;
+            padding-bottom: 15px;
+        }
+
+        .controls {
+            background: #1e2329;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        select,
+        button {
+            padding: 10px 15px;
+            border-radius: 5px;
+            border: none;
+            background: #474d57;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button {
+            background: #f0b90b;
+            color: black;
+        }
+
+        button:disabled {
+            background: #2b2f36;
+            color: #848e9c;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            background: #1e2329;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th {
+            background: #2b2f36;
+            padding: 15px;
+            text-align: left;
+            color: #848e9c;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #2b2f36;
+        }
+
+        .strong-low {
+            color: #0ecb81;
+            font-weight: bold;
+        }
+
+        .strong-high {
+            color: #f6465d;
+            font-weight: bold;
+        }
+
+        #progress-bar {
+            width: 0%;
+            height: 4px;
+            background: #f0b90b;
+            transition: width 0.3s;
+        }
+
+        .progress-container {
+            width: 100%;
+            background: #2b2f36;
+            height: 4px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>🚀 Crypto Scanner (Strong Low/High)</h1>
+        <div id="status">Ready to Scan</div>
+    </div>
+
+    <div class="controls">
+        <div>
+            <label>Timeframe:</label>
+            <select id="tf">
+                <option value="5m">5m</option>
+                <option value="15m">15m</option>
+                <option value="1h" selected>1h</option>
+                <option value="4h">4h</option>
+            </select>
+        </div>
+        <button id="scanBtn" onclick="startScan()">Mulai Scan Semua Pair</button>
+    </div>
+
+    <div class="progress-container">
+        <div id="progress-bar"></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Pair</th>
+                <th>Sinyal</th>
+                <th>Harga Terdeteksi</th>
+                <th>Timeframe</th>
+                <th>Link</th>
+            </tr>
+        </thead>
+        <tbody id="resultBody">
+        </tbody>
+    </table>
+
+    <script>
+        async function startScan() {
+            const tf = document.getElementById('tf').value;
+            const btn = document.getElementById('scanBtn');
+            const resultBody = document.getElementById('resultBody');
+            const progressBar = document.getElementById('progress-bar');
+
+            btn.disabled = true;
+            resultBody.innerHTML = '';
+
+            try {
+                // 1. Ambil semua pair USDT dari Binance
+                document.getElementById('status').innerText = "Mengambil daftar pair...";
+                const exchangeInfo = await fetch('https://api.binance.com/api/v3/exchangeInfo').then(r => r.json());
+                const pairs = exchangeInfo.symbols
+                    .filter(s => s.symbol.endsWith('USDT') && s.status === 'TRADING')
+                    .map(s => s.symbol);
+
+                // Kita batasi atau scan bertahap biar nggak kena rate limit
+                const total = pairs.length;
+
+                for (let i = 0; i < total; i++) {
+                    const pair = pairs[i];
+                    document.getElementById('status').innerText = `Scanning ${pair} (${i+1}/${total})`;
+                    progressBar.style.width = `${((i+1)/total)*100}%`;
+
+                    await scanPair(pair, tf);
+
+                    // Delay dikit biar nggak di-ban API-nya (request per second)
+                    if (i % 5 === 0) await new Promise(r => setTimeout(r, 100));
+                }
+
+                document.getElementById('status').innerText = "Scan Selesai!";
+            } catch (err) {
+                console.error(err);
+                document.getElementById('status').innerText = "Error: " + err.message;
+            }
+            btn.disabled = false;
+        }
+
+        async function scanPair(pair, tf) {
+            try {
+                const response = await fetch(
+                    `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${tf}&limit=50`);
+                const data = await response.json();
+
+                if (data.length < 20) return;
+
+                const candles = data.map(d => ({
+                    high: parseFloat(d[2]),
+                    low: parseFloat(d[3]),
+                    close: parseFloat(d[4])
+                }));
+
+                // Logika Fractal: Cek candle ke-3 dari belakang (karena butuh konfirmasi candle sesudahnya)
+                const targetIdx = candles.length - 3;
+                const target = candles[targetIdx];
+                const window = 2; // Radius 2 candle kiri-kanan
+
+                let isStrongHigh = true;
+                let isStrongLow = true;
+
+                for (let j = 1; j <= window; j++) {
+                    if (candles[targetIdx - j].high >= target.high || candles[targetIdx + j].high >= target.high)
+                        isStrongHigh = false;
+                    if (candles[targetIdx - j].low <= target.low || candles[targetIdx + j].low <= target.low)
+                        isStrongLow = false;
+                }
+
+                if (isStrongHigh || isStrongLow) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><b>${pair}</b></td>
+                        <td class="${isStrongHigh ? 'strong-high' : 'strong-low'}">${isStrongHigh ? '🔴 STRONG HIGH' : '🟢 STRONG LOW'}</td>
+                        <td>${isStrongHigh ? target.high : target.low}</td>
+                        <td>${tf}</td>
+                        <td><a href="https://www.binance.com/en/trade/${pair}" target="_blank" style="color:#f0b90b">Trade →</a></td>
+                    `;
+                    document.getElementById('resultBody').prepend(row);
+                }
+
+            } catch (e) {
+                // Skip error (biasanya koin baru atau delisting)
+            }
+        }
+    </script>
+</body>
+
+</html>
