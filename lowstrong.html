@@ -2,109 +2,178 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>SMC Structure Screener Trader</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMC Proximity Screener - Adit Ganteng - CORS Ngentod anjing</title>
     <style>
         :root { --bg: #0b0e11; --card: #1e2329; --text: #eaecef; --accent: #f0b90b; --red: #f6465d; --green: #0ecb81; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
-        .controls { background: var(--card); padding: 15px; border-radius: 8px; display: flex; gap: 15px; margin-bottom: 20px; align-items: center; }
-        table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 8px; overflow: hidden; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #2b3139; }
-        th { background: #2b3139; color: #848e9c; font-size: 12px; }
-        .sh { color: var(--red); font-weight: bold; background: rgba(246, 70, 93, 0.1); padding: 4px 8px; border-radius: 4px; }
-        .sl { color: var(--green); font-weight: bold; background: rgba(14, 203, 129, 0.1); padding: 4px 8px; border-radius: 4px; }
-        button { background: var(--accent); border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        #progress { color: var(--accent); margin-left: 10px; font-weight: bold; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1100px; margin: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2b3139; padding-bottom: 15px; margin-bottom: 20px; }
+        .controls { background: var(--card); padding: 20px; border-radius: 12px; display: flex; gap: 15px; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        select, button { padding: 10px 15px; border-radius: 6px; border: none; font-weight: bold; }
+        select { background: #474d57; color: white; cursor: pointer; }
+        button { background: var(--accent); color: black; cursor: pointer; transition: 0.2s; }
+        button:hover { opacity: 0.9; transform: scale(1.02); }
+        button:disabled { background: #2b3139; color: #848e9c; cursor: not-allowed; }
+        .progress-box { margin: 20px 0; font-size: 14px; color: var(--accent); }
+        table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; }
+        th { background: #2b3139; padding: 15px; text-align: left; font-size: 12px; color: #848e9c; text-transform: uppercase; }
+        td { padding: 15px; border-bottom: 1px solid #2b3139; vertical-align: middle; }
+        tr:hover { background: #2b3139; }
+        .sh { color: var(--red); font-weight: bold; background: rgba(246, 70, 93, 0.15); padding: 6px 10px; border-radius: 4px; display: inline-block; }
+        .sl { color: var(--green); font-weight: bold; background: rgba(14, 203, 129, 0.15); padding: 6px 10px; border-radius: 4px; display: inline-block; }
+        .distance { font-size: 12px; color: #848e9c; margin-top: 5px; display: block; }
+        a { color: var(--accent); text-decoration: none; font-weight: bold; }
+        a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
 
-    <h2>📊 Smart Money Screener (Strong H/L)</h2>
+<div class="container">
+    <div class="header">
+        <h2>🚀 SMC Proximity Screener <small style="font-size: 12px; color: #848e9c;">(Area Hunter)</small></h2>
+        <div id="status">Ready</div>
+    </div>
+
     <div class="controls">
-        <select id="tf" style="padding: 10px; background: #474d57; color: white; border: none; border-radius: 5px;">
-            <option value="5m">5m</option>
-            <option value="15m" selected>15m</option>
-            <option value="1h">1h</option>
-            <option value="4h">4h</option>
+        <label>Timeframe:</label>
+        <select id="tf">
+            <option value="5m">5m (Scalping)</option>
+            <option value="15m" selected>15m (Day Trade)</option>
+            <option value="1h">1h (Swing Short)</option>
+            <option value="4h">4h (Swing)</option>
         </select>
-        <button onclick="startScan()">Scan Market Structure</button>
-        <span id="progress">Ready</span>
+        <button id="scanBtn" onclick="startScan()">Cari Koin di Area Reversal</button>
+        <div class="progress-box" id="progressText">Klik tombol untuk mulai scan...</div>
     </div>
 
     <table>
         <thead>
             <tr>
-                <th>Pair</th>
-                <th>Sinyal Structure</th>
-                <th>Price</th>
-                <th>TF</th>
-                <th>Action</th>
+                <th>Market Pair</th>
+                <th>Tipe Area</th>
+                <th>Harga / Jarak</th>
+                <th>Timeframe</th>
+                <th>Aksi</th>
             </tr>
         </thead>
-        <tbody id="resultBody"></tbody>
+        <tbody id="resultBody">
+            <tr>
+                <td colspan="5" style="text-align: center; color: #848e9c; padding: 50px;">Belum ada hasil scan.</td>
+            </tr>
+        </tbody>
     </table>
+</div>
 
 <script>
+    // Proxy untuk bypass CORS
+    const PROXY = "https://corsproxy.io/?"; 
+    const EXCHANGE_URL = encodeURIComponent("https://fapi.binance.com/fapi/v1/exchangeInfo");
+
     async function startScan() {
         const tf = document.getElementById('tf').value;
+        const btn = document.getElementById('scanBtn');
         const resultBody = document.getElementById('resultBody');
-        const progress = document.getElementById('progress');
+        const statusText = document.getElementById('progressText');
         
+        btn.disabled = true;
         resultBody.innerHTML = '';
-        progress.innerText = "Fetching Pairs...";
+        statusText.innerText = "🔍 Connecting to Binance Futures...";
 
         try {
-            // Gunakan fapi (Futures) agar lebih minim CORS error
-            const resp = await fetch('https://fapi.binance.com/fapi/v1/exchangeInfo');
+            // 1. Ambil List Pair
+            const resp = await fetch(PROXY + EXCHANGE_URL);
             const data = await resp.json();
-            const pairs = data.symbols.filter(s => s.quoteAsset === 'USDT').map(s => s.symbol).slice(0, 150); // Scan 150 pair teratas
+            const pairs = data.symbols
+                .filter(s => s.quoteAsset === 'USDT' && s.status === 'TRADING')
+                .map(s => s.symbol)
+                .slice(0, 150); // Scan 150 pair terpopuler
 
+            // 2. Scan Satu-Satu
             for (let i = 0; i < pairs.length; i++) {
-                progress.innerText = `Scanning ${i+1}/${pairs.length}`;
-                await checkStructure(pairs[i], tf);
-                await new Promise(r => setTimeout(r, 50)); // Delay agar tidak limit
+                const pair = pairs[i];
+                statusText.innerText = `Scanning: ${pair} (${i+1}/${pairs.length})`;
+                await checkProximity(pair, tf);
+                // Delay singkat agar tidak kena Rate Limit
+                await new Promise(r => setTimeout(r, 100));
             }
-            progress.innerText = "Scan Selesai!";
+
+            statusText.innerText = "✅ Scan Selesai! Pantau koin yang muncul di tabel.";
         } catch (e) {
-            progress.innerText = "Error! Pakai extension 'Allow CORS' jika macet.";
+            console.error(e);
+            statusText.innerText = "❌ Error! Matikan Extension 'Allow CORS' jika macet saat pakai Proxy.";
         }
+        btn.disabled = false;
     }
 
-    async function checkStructure(pair, tf) {
+    async function checkProximity(pair, tf) {
         try {
-            const resp = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${pair}&interval=${tf}&limit=100`);
+            const candleUrl = encodeURIComponent(`https://fapi.binance.com/fapi/v1/klines?symbol=${pair}&interval=${tf}&limit=80`);
+            const resp = await fetch(PROXY + candleUrl);
             const candles = await resp.json();
-            if (candles.length < 50) return;
+            
+            if (!Array.isArray(candles) || candles.length < 40) return;
 
             const highs = candles.map(c => parseFloat(c[2]));
             const lows = candles.map(c => parseFloat(c[3]));
-            const closes = candles.map(c => parseFloat(c[4]));
+            const currentPrice = parseFloat(candles[candles.length - 1][4]);
 
-            // Index candle ke-3 (untuk konfirmasi fractal)
-            const i = candles.length - 3;
+            // Cari Strong High/Low Terbaru di range candle
+            let strongHigh = 0;
+            let strongLow = 0;
 
-            // 1. Logika Strong High (SMC Style): 
-            // Titik tertinggi yang diikuti Break of Structure (Close di bawah low sebelumnya)
-            let isStrongHigh = (highs[i] > highs[i-1] && highs[i] > highs[i-2] && highs[i] > highs[i+1] && highs[i] > highs[i+2]);
-            let hasBOS_Down = closes[i+2] < lows[i-1]; // Konfirmasi harga turun tembus low fractal
-
-            // 2. Logika Strong Low:
-            // Titik terendah yang diikuti Break of Structure (Close di atas high sebelumnya)
-            let isStrongLow = (lows[i] < lows[i-1] && lows[i] < lows[i-2] && lows[i] < lows[i+1] && lows[i] < lows[i+2]);
-            let hasBOS_Up = closes[i+2] > highs[i-1];
-
-            if ((isStrongHigh && hasBOS_Down) || (isStrongLow && hasBOS_Up)) {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><b>${pair}</b></td>
-                    <td><span class="${isStrongHigh ? 'sh' : 'sl'}">${isStrongHigh ? '⬇️ STRONG HIGH (BOS)' : '⬆️ STRONG LOW (BOS)'}</span></td>
-                    <td>${isStrongHigh ? highs[i] : lows[i]}</td>
-                    <td>${tf}</td>
-                    <td><a href="https://www.binance.com/en/futures/${pair}" target="_blank" style="color:var(--accent)">Chart →</a></td>
-                `;
-                document.getElementById('resultBody').prepend(row);
+            // Kita cari dari candle ke-5 ke belakang (mencari area supply/demand yang sudah terbentuk)
+            for (let i = candles.length - 5; i > 10; i--) {
+                // Logika Fractal 3-3 (Point ekstrem)
+                if (highs[i] > highs[i-1] && highs[i] > highs[i-2] && highs[i] > highs[i+1] && highs[i] > highs[i+2]) {
+                    if (strongHigh === 0) strongHigh = highs[i];
+                }
+                if (lows[i] < lows[i-1] && lows[i] < lows[i-2] && lows[i] < lows[i+1] && lows[i] < lows[i+2]) {
+                    if (strongLow === 0) strongLow = lows[i];
+                }
+                if (strongHigh !== 0 && strongLow !== 0) break;
             }
-        } catch (e) {}
+
+            // FILTER: Radius kedekatan (0.5% = 0.005)
+            const radius = 0.005; 
+            
+            let distHigh = (currentPrice - strongHigh) / strongHigh;
+            let distLow = (currentPrice - strongLow) / strongLow;
+
+            let isNearHigh = strongHigh !== 0 && Math.abs(distHigh) <= radius;
+            let isNearLow = strongLow !== 0 && Math.abs(distLow) <= radius;
+
+            if (isNearHigh || isNearLow) {
+                renderRow(pair, isNearHigh ? 'HIGH' : 'LOW', currentPrice, isNearHigh ? distHigh : distLow, tf);
+            }
+        } catch (e) { }
+    }
+
+    function renderRow(pair, type, price, dist, tf) {
+        const resultBody = document.getElementById('resultBody');
+        const row = document.createElement('tr');
+        
+        // Buang row kosong di awal
+        if (resultBody.innerText.includes("Belum ada hasil")) resultBody.innerHTML = '';
+
+        const distPercent = (dist * 100).toFixed(2);
+        const label = type === 'HIGH' ? 
+            `<span class="sh">🔴 DEKAT STRONG HIGH</span>` : 
+            `<span class="sl">🟢 DEKAT STRONG LOW</span>`;
+
+        row.innerHTML = `
+            <td><b>${pair}</b></td>
+            <td>${label}</td>
+            <td>
+                <b>$${price}</b>
+                <span class="distance">Jarak: ${distPercent}% dari area</span>
+            </td>
+            <td>${tf}</td>
+            <td><a href="https://www.binance.com/en/futures/${pair}" target="_blank">Sikat di Binance →</a></td>
+        `;
+        resultBody.prepend(row);
     }
 </script>
+
 </body>
 </html>
