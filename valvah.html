@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto All-Coin VA Screener</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #f8fafc; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; background: #1e293b; padding: 25px; border-radius: 15px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .controls { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 20px; background: #334155; padding: 15px; border-radius: 10px; }
+        select, input, button { padding: 8px 12px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: white; }
+        button { background: #10b981; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #059669; }
+        button:disabled { background: #64748b; cursor: not-allowed; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #0f172a; }
+        th, td { border: 1px solid #334155; padding: 12px; text-align: left; }
+        th { background: #1e293b; color: #94a3b8; }
+        .val-text { color: #f43f5e; font-weight: bold; } /* Pink/Red for VAL */
+        .vah-text { color: #10b981; font-weight: bold; } /* Green for VAH */
+        #progress-bar { width: 0%; height: 5px; background: #10b981; transition: 0.2s; margin-bottom: 10px; border-radius: 5px; }
+        .loader-container { width: 100%; background: #334155; height: 5px; border-radius: 5px; display: none; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🔍 All-In-One VA Screener</h2>
+    <p style="color: #94a3b8; font-size: 0.9em;">Mencari koin yang mendekati area Value Area (VAL/VAH) berdasarkan Volume Profile sederhana.</p>
+    
+    <div class="controls">
+        <div>
+            <label>Timeframe:</label>
+            <select id="tf">
+                <option value="15m">15m</option>
+                <option value="1h">1h</option>
+                <option value="4h" selected>4h</option>
+                <option value="1d">1d</option>
+            </select>
+        </div>
+
+        <div>
+            <label>Kondisi:</label>
+            <select id="condition">
+                <option value="val">Mendekati VAL (Support)</option>
+                <option value="vah">Mendekati VAH (Resistance)</option>
+            </select>
+        </div>
+
+        <div>
+            <label>Jarak Max (%):</label>
+            <input type="number" id="tolerance" value="0.5" step="0.1" style="width: 60px;">
+        </div>
+
+        <button id="scanBtn" onclick="startMegaScan()">Mulai Scan Semua Koin</button>
+    </div>
+
+    <div id="loader" class="loader-container">
+        <div id="progress-bar"></div>
+    </div>
+    <p id="status" style="font-size: 0.85em; color: #38bdf8;"></p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Coin</th>
+                <th>Price Now</th>
+                <th>Target Level</th>
+                <th>Jarak (%)</th>
+            </tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+    </table>
+</div>
+
+<script>
+    async function getAllUSDTCoins() {
+        const res = await fetch('https://api.binance.com/api/v3/exchangeInfo');
+        const data = await res.json();
+        // Filter cuma yang pair USDT, status TRADING, dan bukan koin "Leveraged" (UP/DOWN)
+        return data.symbols
+            .filter(s => s.quoteAsset === 'USDT' && s.status === 'TRADING' && !s.symbol.includes('UP') && !s.symbol.includes('DOWN'))
+            .map(s => s.symbol);
+    }
+
+    async function fetchOHLCV(symbol, tf) {
+        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}&limit=100`;
+        const res = await fetch(url);
+        return await res.json();
+    }
+
+    function calculateVA(data) {
+        let prices = data.map(d => parseFloat(d[4])); 
+        prices.sort((a, b) => a - b);
+        // Estimasi Value Area 70% (Percentile 15-85)
+        const val = prices[Math.floor(prices.length * 0.15)];
+        const vah = prices[Math.floor(prices.length * 0.85)];
+        return { val, vah };
+    }
+
+    async function startMegaScan() {
+        const btn = document.getElementById('scanBtn');
+        const tf = document.getElementById('tf').value;
+        const condition = document.getElementById('condition').value;
+        const tolerance = parseFloat(document.getElementById('tolerance').value) / 100;
+        const tableBody = document.getElementById('resultBody');
+        const status = document.getElementById('status');
+        const loader = document.getElementById('loader');
+        const progressBar = document.getElementById('progress-bar');
+
+        btn.disabled = true;
+        tableBody.innerHTML = "";
+        loader.style.display = "block";
+        
+        status.innerText = "Mengambil daftar koin dari Binance...";
+        const allCoins = await getAllUSDTCoins();
+        const total = allCoins.length;
+
+        for (let i = 0; i < total; i++) {
+            let coin = allCoins[i];
+            let progress = ((i + 1) / total) * 100;
+            progressBar.style.width = progress + "%";
+            status.innerText = `Scanning ${i+1}/${total}: ${coin}...`;
+
+            try {
+                const data = await fetchOHLCV(coin, tf);
+                if(data.length < 50) continue; // Skip koin baru yang datanya dikit
+
+                const { val, vah } = calculateVA(data);
+                const lastPrice = parseFloat(data[data.length - 1][4]);
+                
+                let target = (condition === 'val') ? val : vah;
+                let distance = Math.abs(lastPrice - target) / target;
+
+                if (distance <= tolerance) {
+                    let row = `<tr>
+                        <td><a href="https://www.binance.com/en/trade/${coin}" target="_blank" style="color:white; text-decoration:none;">🔗 <b>${coin}</b></a></td>
+                        <td>${lastPrice}</td>
+                        <td class="${condition === 'val' ? 'val-text' : 'vah-text'}">${target.toFixed(4)}</td>
+                        <td>${(distance * 100).toFixed(2)}%</td>
+                    </tr>`;
+                    tableBody.innerHTML += row;
+                }
+                
+                // Kasih delay tipis biar gak kena limit API (10ms)
+                if (i % 5 === 0) await new Promise(r => setTimeout(r, 10));
+
+            } catch (e) {
+                console.log("Skip koin: " + coin);
+            }
+        }
+        
+        status.innerText = `Selesai! Berhasil scan ${total} koin.`;
+        btn.disabled = false;
+        loader.style.display = "none";
+    }
+</script>
+
+</body>
+</html>
