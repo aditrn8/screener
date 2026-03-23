@@ -2,190 +2,109 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Screener Strong Low/High - Anton Trader v3</title>
+    <title>SMC Structure Screener Trader</title>
     <style>
         :root { --bg: #0b0e11; --card: #1e2329; --text: #eaecef; --accent: #f0b90b; --red: #f6465d; --green: #0ecb81; }
-        body { font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #2b3139; padding-bottom: 15px; }
-        .controls { background: var(--card); padding: 20px; border-radius: 12px; display: flex; gap: 20px; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        select, button { padding: 12px 20px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; }
-        select { background: #474d57; color: white; cursor: pointer; }
-        button { background: var(--accent); color: black; cursor: pointer; transition: 0.2s; }
-        button:hover { opacity: 0.9; transform: translateY(-1px); }
-        button:disabled { background: #2b3139; color: #848e9c; cursor: not-allowed; }
-        .progress-container { width: 100%; background: #2b3139; height: 6px; border-radius: 3px; margin: 20px 0; overflow: hidden; }
-        #progress-bar { width: 0%; height: 100%; background: var(--accent); transition: width 0.3s ease; }
-        table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; }
-        th { background: #2b3139; padding: 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #848e9c; }
-        td { padding: 15px; border-bottom: 1px solid #2b3139; font-size: 14px; }
-        tr:hover { background: #2b3139; }
-        .strong-low { color: var(--green); font-weight: bold; }
-        .strong-high { color: var(--red); font-weight: bold; }
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px; background: rgba(255,255,255,0.1); }
-        #status-text { font-size: 14px; color: var(--accent); }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+        .controls { background: var(--card); padding: 15px; border-radius: 8px; display: flex; gap: 15px; margin-bottom: 20px; align-items: center; }
+        table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 8px; overflow: hidden; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #2b3139; }
+        th { background: #2b3139; color: #848e9c; font-size: 12px; }
+        .sh { color: var(--red); font-weight: bold; background: rgba(246, 70, 93, 0.1); padding: 4px 8px; border-radius: 4px; }
+        .sl { color: var(--green); font-weight: bold; background: rgba(14, 203, 129, 0.1); padding: 4px 8px; border-radius: 4px; }
+        button { background: var(--accent); border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        #progress { color: var(--accent); margin-left: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <h2>🚀 Crypto Screener <span id="pair-count"></span></h2>
-        <div id="status-text">Ready to Scan</div>
-    </div>
-
+    <h2>📊 Smart Money Screener (Strong H/L)</h2>
     <div class="controls">
-        <div>
-            <label style="margin-right: 10px;">Timeframe:</label>
-            <select id="tf">
-                <option value="5m">5m (Scalping)</option>
-                <option value="15m">15m (Fast)</option>
-                <option value="1h" selected>1h (Swing Short)</option>
-                <option value="4h">4h (Swing Medium)</option>
-            </select>
-        </div>
-        <button id="scanBtn" onclick="startScan()">Mulai Auto Scan Semua Pair</button>
-    </div>
-
-    <div class="progress-container">
-        <div id="progress-bar"></div>
+        <select id="tf" style="padding: 10px; background: #474d57; color: white; border: none; border-radius: 5px;">
+            <option value="5m">5m</option>
+            <option value="15m" selected>15m</option>
+            <option value="1h">1h</option>
+            <option value="4h">4h</option>
+        </select>
+        <button onclick="startScan()">Scan Market Structure</button>
+        <span id="progress">Ready</span>
     </div>
 
     <table>
         <thead>
             <tr>
-                <th>Market Pair</th>
-                <th>Sinyal Terdeteksi</th>
-                <th>Harga Target</th>
-                <th>Timeframe</th>
-                <th>Aksi</th>
+                <th>Pair</th>
+                <th>Sinyal Structure</th>
+                <th>Price</th>
+                <th>TF</th>
+                <th>Action</th>
             </tr>
         </thead>
-        <tbody id="resultBody">
-            <tr>
-                <td colspan="5" style="text-align: center; color: #848e9c; padding: 40px;">Klik tombol "Mulai Scan" untuk mencari peluang...</td>
-            </tr>
-        </tbody>
+        <tbody id="resultBody"></tbody>
     </table>
-</div>
 
 <script>
-    const PROXY_URL = "https://api.allorigins.win/get?url=";
-
     async function startScan() {
         const tf = document.getElementById('tf').value;
-        const btn = document.getElementById('scanBtn');
         const resultBody = document.getElementById('resultBody');
-        const progressBar = document.getElementById('progress-bar');
-        const statusText = document.getElementById('status-text');
+        const progress = document.getElementById('progress');
         
-        btn.disabled = true;
         resultBody.innerHTML = '';
-        progressBar.style.width = '0%';
-        
+        progress.innerText = "Fetching Pairs...";
+
         try {
-            statusText.innerText = "🔍 Mengambil list USDT pair...";
-            
-            // Fetch list pair lewat proxy untuk hindari CORS
-            const targetUrl = encodeURIComponent('https://api.binance.com/api/v3/exchangeInfo');
-            const response = await fetch(PROXY_URL + targetUrl);
-            const wrapper = await response.json();
-            const data = JSON.parse(wrapper.contents);
+            // Gunakan fapi (Futures) agar lebih minim CORS error
+            const resp = await fetch('https://fapi.binance.com/fapi/v1/exchangeInfo');
+            const data = await resp.json();
+            const pairs = data.symbols.filter(s => s.quoteAsset === 'USDT').map(s => s.symbol).slice(0, 150); // Scan 150 pair teratas
 
-            // Filter hanya USDT yang aktif TRADING
-            const pairs = data.symbols
-                .filter(s => s.symbol.endsWith('USDT') && s.status === 'TRADING')
-                .map(s => s.symbol);
-
-            const total = pairs.length;
-            document.getElementById('pair-count').innerText = `(${total} Pairs)`;
-
-            for (let i = 0; i < total; i++) {
-                const pair = pairs[i];
-                statusText.innerText = `Scanning: ${pair} (${i+1}/${total})`;
-                progressBar.style.width = `${((i + 1) / total) * 100}%`;
-
-                await scanPair(pair, tf);
-                
-                // Jeda 150ms tiap request biar API aman & lancar
-                await new Promise(r => setTimeout(r, 150));
+            for (let i = 0; i < pairs.length; i++) {
+                progress.innerText = `Scanning ${i+1}/${pairs.length}`;
+                await checkStructure(pairs[i], tf);
+                await new Promise(r => setTimeout(r, 50)); // Delay agar tidak limit
             }
-
-            statusText.innerText = "✅ Scan Selesai!";
-        } catch (err) {
-            console.error(err);
-            statusText.innerText = "❌ Error: Cek koneksi atau coba lagi.";
-        }
-        btn.disabled = false;
-    }
-
-    async function scanPair(pair, tf) {
-        try {
-            // Untuk data klines (candle), biasanya Binance lebih longgar (tidak kena CORS di bbrp ISP)
-            // Jika masih error, kita bisa tambahkan proxy di sini juga.
-            const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${tf}&limit=40`);
-            const data = await response.json();
-            
-            if (data.length < 10) return;
-
-            const candles = data.map(d => ({
-                high: parseFloat(d[2]),
-                low: parseFloat(d[3]),
-                time: new Date(d[0]).toLocaleTimeString()
-            }));
-
-            // LOGIKA STRONG POINT (FRACTAL)
-            // Kita cek candle ke-3 dari belakang (index: length - 3)
-            // Titik ini disebut STRONG jika lebih tinggi/rendah dari 2 candle sebelumnya & 2 sesudahnya
-            const idx = candles.length - 3;
-            const target = candles[idx];
-            const radius = 2;
-
-            let isStrongHigh = true;
-            let isStrongLow = true;
-
-            for (let j = 1; j <= radius; j++) {
-                // Cek High
-                if (candles[idx - j].high >= target.high || candles[idx + j].high >= target.high) isStrongHigh = false;
-                // Cek Low
-                if (candles[idx - j].low <= target.low || candles[idx + j].low <= target.low) isStrongLow = false;
-            }
-
-            if (isStrongHigh || isStrongLow) {
-                renderResult(pair, isStrongHigh ? 'HIGH' : 'LOW', isStrongHigh ? target.high : target.low, tf);
-            }
-
+            progress.innerText = "Scan Selesai!";
         } catch (e) {
-            // Silently skip if pair has issues
+            progress.innerText = "Error! Pakai extension 'Allow CORS' jika macet.";
         }
     }
 
-    function renderResult(pair, type, price, tf) {
-        const resultBody = document.getElementById('resultBody');
-        const row = document.createElement('tr');
-        
-        const signalLabel = type === 'HIGH' ? 
-            `<span class="strong-high">🔴 STRONG HIGH</span>` : 
-            `<span class="strong-low">🟢 STRONG LOW</span>`;
+    async function checkStructure(pair, tf) {
+        try {
+            const resp = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${pair}&interval=${tf}&limit=100`);
+            const candles = await resp.json();
+            if (candles.length < 50) return;
 
-        row.innerHTML = `
-            <td><b>${pair}</b></td>
-            <td>${signalLabel} <span class="badge">Reversal Potential</span></td>
-            <td>$${price.toLocaleString()}</td>
-            <td>${tf}</td>
-            <td><a href="https://www.binance.com/en/trade/${pair}?type=futures" target="_blank" style="color:var(--accent); text-decoration:none;">Buka Chart →</a></td>
-        `;
-        
-        // Munculkan yang terbaru di paling atas
-        if (resultBody.firstChild && resultBody.firstChild.tagName === 'TR') {
-            resultBody.insertBefore(row, resultBody.firstChild);
-        } else {
-            resultBody.innerHTML = '';
-            resultBody.appendChild(row);
-        }
+            const highs = candles.map(c => parseFloat(c[2]));
+            const lows = candles.map(c => parseFloat(c[3]));
+            const closes = candles.map(c => parseFloat(c[4]));
+
+            // Index candle ke-3 (untuk konfirmasi fractal)
+            const i = candles.length - 3;
+
+            // 1. Logika Strong High (SMC Style): 
+            // Titik tertinggi yang diikuti Break of Structure (Close di bawah low sebelumnya)
+            let isStrongHigh = (highs[i] > highs[i-1] && highs[i] > highs[i-2] && highs[i] > highs[i+1] && highs[i] > highs[i+2]);
+            let hasBOS_Down = closes[i+2] < lows[i-1]; // Konfirmasi harga turun tembus low fractal
+
+            // 2. Logika Strong Low:
+            // Titik terendah yang diikuti Break of Structure (Close di atas high sebelumnya)
+            let isStrongLow = (lows[i] < lows[i-1] && lows[i] < lows[i-2] && lows[i] < lows[i+1] && lows[i] < lows[i+2]);
+            let hasBOS_Up = closes[i+2] > highs[i-1];
+
+            if ((isStrongHigh && hasBOS_Down) || (isStrongLow && hasBOS_Up)) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><b>${pair}</b></td>
+                    <td><span class="${isStrongHigh ? 'sh' : 'sl'}">${isStrongHigh ? '⬇️ STRONG HIGH (BOS)' : '⬆️ STRONG LOW (BOS)'}</span></td>
+                    <td>${isStrongHigh ? highs[i] : lows[i]}</td>
+                    <td>${tf}</td>
+                    <td><a href="https://www.binance.com/en/futures/${pair}" target="_blank" style="color:var(--accent)">Chart →</a></td>
+                `;
+                document.getElementById('resultBody').prepend(row);
+            }
+        } catch (e) {}
     }
 </script>
-
 </body>
 </html>
