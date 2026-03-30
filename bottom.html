@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bottom Hunter - Mega Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0b0e11; color: #eaecef; font-family: 'Inter', sans-serif; }
+        .match { color: #22c55e; font-weight: bold; }
+        .no-match { color: #ef4444; opacity: 0.5; }
+        .loading-bar { transition: width 0.3s ease; }
+        tr:hover { background-color: rgba(255, 255, 255, 0.05); }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 border-b border-gray-800 pb-6 gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-yellow-500 flex items-center gap-2">
+                    🛡️ Bottom Hunter <span class="text-xs bg-yellow-500 text-black px-2 py-1 rounded">V2.0</span>
+                </h1>
+                <p class="text-sm text-gray-400 mt-1">
+                    Mencari koin: <span class="text-blue-400">Harga 0-3% di bawah EMA200</span> + <span class="text-red-400">RSI < 30</span> + <span class="text-green-400 text-xs">Vol > 1M</span>
+                </p>
+                
+                <div class="flex items-center gap-3 mt-4">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Pilih Timeframe:</span>
+                    <select id="tf-select" class="bg-gray-800 text-sm p-2 rounded-lg border border-gray-700 text-white focus:ring-2 focus:ring-yellow-500 outline-none cursor-pointer">
+                        <option value="15m">15 Menit</option>
+                        <option value="1h" selected>1 Jam (H1)</option>
+                        <option value="4h">4 Jam (H4)</option>
+                        <option value="1d">1 Hari (D1)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="w-full md:w-auto text-left md:text-right">
+                <div id="scan-status" class="text-xs font-mono uppercase tracking-widest text-blue-400 mb-2">Ready to Scan</div>
+                <div class="w-full md:w-64 h-2 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
+                    <div id="progress-bar" class="loading-bar h-full bg-gradient-to-r from-blue-600 to-blue-400" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gray-900 rounded-xl overflow-hidden shadow-2xl border border-gray-800">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-800/50 text-gray-400 uppercase text-xs">
+                        <tr>
+                            <th class="p-4">Pair (USDT)</th>
+                            <th class="p-4 text-center">Harga / EMA200</th>
+                            <th class="p-4 text-center">RSI (14)</th>
+                            <th class="p-4 text-center">Vol 24h</th>
+                            <th class="p-4 text-center">Gap (%)</th>
+                            <th class="p-4 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="result-table" class="divide-y divide-gray-800">
+                        </tbody>
+                </table>
+            </div>
+            <div id="empty-state" class="p-10 text-center text-gray-600">
+                Belum ada koin yang sesuai kriteria. Scanning terus berjalan...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const beep = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        let isScanning = false;
+
+        // Fungsi Hitung EMA (Exponential Moving Average)
+        const calculateEMA = (data, period) => {
+            const k = 2 / (period + 1);
+            let ema = data[0];
+            for (let i = 1; i < data.length; i++) {
+                ema = (data[i] * k) + (ema * (1 - k));
+            }
+            return ema;
+        };
+
+        // Fungsi Hitung RSI (Relative Strength Index)
+        const calculateRSI = (closes, period = 14) => {
+            if (closes.length <= period) return 50;
+            let gains = 0;
+            let losses = 0;
+
+            for (let i = closes.length - period; i < closes.length; i++) {
+                const change = closes[i] - closes[i - 1];
+                if (change >= 0) gains += change;
+                else losses -= change;
+            }
+
+            if (losses === 0) return 100;
+            const rs = (gains / period) / (losses / period);
+            return 100 - (100 / (1 + rs));
+        };
+
+        async function scanCoin(symbol, tf) {
+            try {
+                // Ambil 250 candle terakhir untuk akurasi EMA200
+                const resp = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}&limit=250`);
+                const klines = await resp.json();
+                
+                if (klines.length < 200) return;
+
+                const closes = klines.map(k => parseFloat(k[4]));
+                const lastVol = parseFloat(klines[klines.length - 1][7]); // Volume dalam USDT
+                const lastPrice = closes[closes.length - 1];
+                const ema200 = calculateEMA(closes, 200);
+                const rsi = calculateRSI(closes);
+
+                // LOGIKA: Harga DI BAWAH EMA200 antara 0% sampai 3%
+                const dist = ((ema200 - lastPrice) / ema200) * 100;
+                const isBelowEma = dist > 0 && dist <= 3;
+                
+                // LOGIKA: RSI di bawah 30 (Oversold)
+                const isRsiOversold = rsi < 30;
+
+                // LOGIKA: Volume minimal 1 Juta USDT
+                const isVolGood = lastVol > 1000000;
+
+                if (isBelowEma && isRsiOversold && isVolGood) {
+                    renderRow(symbol, lastPrice, ema200, rsi, lastVol, dist.toFixed(2));
+                    beep.play();
+                    document.getElementById('empty-state').classList.add('hidden');
+                }
+            } catch (e) {
+                console.error("Error scanning " + symbol, e);
+            }
+        }
+
+        function renderRow(symbol, price, ema, rsi, vol, dist) {
+            const tbody = document.getElementById('result-table');
+            
+            // Cek jika pair sudah ada di tabel agar tidak duplikat
+            if (document.getElementById(`row-${symbol}`)) return;
+
+            const row = document.createElement('tr');
+            row.id = `row-${symbol}`;
+            row.className = "bg-green-500/5 animate-pulse transition duration-500";
+            row.innerHTML = `
+                <td class="p-4 font-bold text-yellow-400">${symbol}</td>
+                <td class="p-4 text-center font-mono">
+                    <div class="text-white">${price.toFixed(4)}</div>
+                    <div class="text-[10px] text-gray-500">EMA: ${ema.toFixed(4)}</div>
+                </td>
+                <td class="p-4 text-center font-bold ${rsi < 25 ? 'text-red-500' : 'text-orange-400'}">
+                    ${rsi.toFixed(2)}
+                </td>
+                <td class="p-4 text-center text-blue-300 font-mono italic">
+                    $${(vol / 1000000).toFixed(2)}M
+                </td>
+                <td class="p-4 text-center text-green-400 font-bold">
+                    -${dist}%
+                </td>
+                <td class="p-4 text-center">
+                    <a href="https://www.tradingview.com/chart/?symbol=BINANCE:${symbol}" target="_blank" 
+                       class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-md text-xs font-bold transition">
+                       VIEW
+                    </a>
+                </td>
+            `;
+            tbody.prepend(row);
+            
+            // Hilangkan efek pulse setelah 3 detik
+            setTimeout(() => row.classList.remove('animate-pulse'), 3000);
+        }
+
+        async function startScanner() {
+            if (isScanning) return;
+            isScanning = true;
+
+            const tf = document.getElementById('tf-select').value;
+            document.getElementById('result-table').innerHTML = ""; 
+            document.getElementById('empty-state').classList.remove('hidden');
+            document.getElementById('scan-status').innerText = "Fetching Pairs...";
+
+            try {
+                const resp = await fetch('https://api.binance.com/api/v3/exchangeInfo');
+                const data = await resp.json();
+                
+                // Hanya ambil pair USDT yang sedang TRADING
+                const allPairs = data.symbols
+                    .filter(s => s.quoteAsset === 'USDT' && s.status === 'TRADING')
+                    .map(s => s.symbol);
+
+                for (let i = 0; i < allPairs.length; i++) {
+                    const pct = ((i / allPairs.length) * 100).toFixed(0);
+                    document.getElementById('progress-bar').style.width = pct + "%";
+                    document.getElementById('scan-status').innerText = `Scanning ${tf}: ${allPairs[i]} (${i}/${allPairs.length})`;
+                    
+                    await scanCoin(allPairs[i], tf);
+                    
+                    // Delay kecil biar nggak kena Rate Limit Binance
+                    await new Promise(r => setTimeout(r, 60)); 
+                }
+
+                document.getElementById('scan-status').innerText = `Scan Selesai (${tf}). Menunggu Loop Berikutnya...`;
+                isScanning = false;
+                
+                // Scan ulang otomatis tiap 1 menit
+                setTimeout(startScanner, 60000);
+
+            } catch (err) {
+                console.error("Scanner Error:", err);
+                isScanning = false;
+                setTimeout(startScanner, 5000);
+            }
+        }
+
+        // Listener jika ganti Timeframe
+        document.getElementById('tf-select').addEventListener('change', () => {
+            isScanning = false;
+            startScanner();
+        });
+
+        // Start Pertama Kali
+        startScanner();
+    </script>
+</body>
+</html>
