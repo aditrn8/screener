@@ -3,20 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bottom Hunter V2.0 - cXbcdv</title>
+    <title>Bottom Hunter V2.4 - THE REAL FAHHHHHHH</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body { background-color: #0b0e11; color: #eaecef; font-family: 'Inter', sans-serif; }
-        .match { color: #22c55e; font-weight: bold; }
         .loading-bar { transition: width 0.3s ease; }
         tr:hover { background-color: rgba(255, 255, 255, 0.05); }
-        /* Animasi sinyal ketemu koin */
-        @keyframes pulse-green {
-            0%, 100% { background-color: rgba(34, 197, 94, 0.1); }
-            50% { background-color: rgba(34, 197, 94, 0.3); }
+        @keyframes pulse-gold {
+            0%, 100% { background-color: rgba(234, 179, 8, 0.1); }
+            50% { background-color: rgba(234, 179, 8, 0.4); }
         }
-        .found-pulse { animation: pulse-green 2s infinite; }
+        .found-pulse { animation: pulse-gold 2s infinite; border-left: 4px solid #eab308; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -24,32 +22,35 @@
         <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 border-b border-gray-800 pb-6 gap-4">
             <div>
                 <h1 class="text-3xl font-bold text-yellow-500 flex items-center gap-2">
-                    🛡️ Bottom Hunter <span class="text-xs bg-yellow-500 text-black px-2 py-1 rounded">V2.1</span>
+                    🌟 ULTIMATE FAHHHH SCANNER <span class="text-xs bg-yellow-500 text-black px-2 py-1 rounded">V2.4</span>
                 </h1>
                 <p class="text-sm text-gray-400 mt-1">
-                    Mencari: <span class="text-blue-400">Harga 0-3% BELOW EMA200</span> + <span class="text-red-400">RSI < 30</span> + <span class="text-green-400 text-xs">Vol > 1M</span>
+                    Logika: <span class="text-blue-400">Price 0-3% Below EMA200</span> + <span class="text-red-400">RSI < 30</span> (No Vol Limit)
                 </p>
                 
                 <div class="flex items-center gap-4 mt-4 flex-wrap">
                     <div class="flex items-center gap-2">
-                        <span class="text-xs font-semibold uppercase text-gray-500">Timeframe:</span>
-                        <select id="tf-select" class="bg-gray-800 text-sm p-2 rounded-lg border border-gray-700 text-white focus:ring-2 focus:ring-yellow-500 outline-none cursor-pointer">
+                        <span class="text-xs font-semibold uppercase text-gray-500 text-[10px]">Timeframe:</span>
+                        <select id="tf-select" class="bg-gray-800 text-sm p-2 rounded-lg border border-gray-700 text-white outline-none cursor-pointer hover:border-yellow-500">
                             <option value="15m">15M</option>
                             <option value="1h" selected>1H</option>
                             <option value="4h">4H</option>
                             <option value="1d">1D</option>
                         </select>
                     </div>
-                    <button onclick="playFahhhSound()" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-2 rounded-lg flex items-center gap-1.5">
-                        🔊 Test Suara "Fahhh"
+                    <button onclick="playUltimateFahhh()" class="text-xs bg-yellow-600 hover:bg-yellow-500 text-black font-bold px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg shadow-yellow-900/40 transform active:scale-95 transition">
+                        🔊 TEST SUARA "FAHHHHHH"
+                    </button>
+                    <button onclick="clearTable()" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 px-3 py-2 rounded-lg border border-gray-700">
+                        🗑️ Clear Table
                     </button>
                 </div>
             </div>
 
             <div class="w-full md:w-auto text-left md:text-right">
-                <div id="scan-status" class="text-xs font-mono uppercase tracking-widest text-blue-400 mb-2">Ready</div>
+                <div id="scan-status" class="text-[10px] font-mono uppercase tracking-[0.2em] text-blue-400 mb-2 italic font-bold">Initializing...</div>
                 <div class="w-full md:w-64 h-2 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
-                    <div id="progress-bar" class="loading-bar h-full bg-gradient-to-r from-blue-600 to-blue-400" style="width: 0%"></div>
+                    <div id="progress-bar" class="loading-bar h-full bg-gradient-to-r from-yellow-600 to-yellow-400" style="width: 0%"></div>
                 </div>
             </div>
         </div>
@@ -57,65 +58,61 @@
         <div class="bg-gray-900 rounded-xl overflow-hidden shadow-2xl border border-gray-800">
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
-                    <thead class="bg-gray-800/50 text-gray-400 uppercase text-xs">
+                    <thead class="bg-gray-800/50 text-gray-400 uppercase text-[10px] tracking-widest">
                         <tr>
                             <th class="p-4">Pair (USDT)</th>
                             <th class="p-4 text-center">Harga / EMA200</th>
                             <th class="p-4 text-center">RSI (14)</th>
-                            <th class="p-4 text-center">Vol 24h</th>
                             <th class="p-4 text-center">Gap (%)</th>
-                            <th class="p-4 text-center">Aksi</th>
+                            <th class="p-4 text-center">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="result-table" class="divide-y divide-gray-800">
-                        </tbody>
+                    <tbody id="result-table" class="divide-y divide-gray-800"></tbody>
                 </table>
             </div>
-            <div id="empty-state" class="p-10 text-center text-gray-600">
-                Belum ada koin yang sesuai kriteria. Scanning terus berjalan...
+            <div id="empty-state" class="p-16 text-center">
+                <div class="text-5xl mb-4 opacity-20 animate-bounce">🔎</div>
+                <div class="text-gray-600 italic font-semibold">Menunggu koin yang bikin lega... "Fahhhhhh"</div>
             </div>
         </div>
     </div>
 
     <script>
-        // Setup Suara "Fahhhh" (Suara cewek bilang "Ahh" lega)
-        const fahhhSound = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_133221350a.mp3');
-        fahhhSound.volume = 0.8; // Set volume 80%
+        const fahhhSound = new Audio('https://www.myinstants.com/media/sounds/fahhhhhhhhhhhhhh-3525.mp3');
+        fahhhSound.volume = 1.0;
 
-        let isScanning = false;
-        let lastPairsFound = []; // Untuk melacak pair yang sudah dibunyiin suaranya
-
-        // Fungsi untuk membunyikan suara tanpa tumpang tindih
-        function playFahhhSound() {
-            // Reset suara ke awal biar kalau dipanggil cepet nggak kepotong
-            fahhhSound.currentTime = 0; 
-            // Putar suara
-            fahhhSound.play().catch(e => {
-                console.log("Browser memblokir auto-play suara. Klik 'Test Suara' dulu atau interaksi dengan halaman.");
+        function playUltimateFahhh() {
+            fahhhSound.currentTime = 0;
+            fahhhSound.play().catch(() => {
+                alert("Wajib klik tombol 'TEST SUARA' dulu ya Bang agar browser mengizinkan audio otomatis!");
             });
         }
 
-        // Fungsi Teknikal
-        const calculateEMA = (data, period) => {
-            const k = 2 / (period + 1);
+        let isScanning = false;
+        let pairsAlreadyFound = new Set();
+
+        const calculateEMA = (data, p) => {
+            const k = 2 / (p + 1);
             let ema = data[0];
-            for (let i = 1; i < data.length; i++) {
-                ema = (data[i] * k) + (ema * (1 - k));
-            }
+            for (let i = 1; i < data.length; i++) ema = (data[i] * k) + (ema * (1 - k));
             return ema;
         };
 
-        const calculateRSI = (closes, period = 14) => {
-            if (closes.length <= period) return 50;
-            let gains = 0; let losses = 0;
-            for (let i = closes.length - period; i < closes.length; i++) {
-                const change = closes[i] - closes[i - 1];
-                if (change >= 0) gains += change; else losses -= change;
+        const calculateRSI = (closes, p = 14) => {
+            if (closes.length <= p) return 50;
+            let g = 0, l = 0;
+            for (let i = closes.length - p; i < closes.length; i++) {
+                const d = closes[i] - closes[i - 1];
+                d >= 0 ? g += d : l -= d;
             }
-            if (losses === 0) return 100;
-            const rs = (gains / period) / (losses / period);
-            return 100 - (100 / (1 + rs));
+            return l === 0 ? 100 : 100 - (100 / (1 + (g / l)));
         };
+
+        function clearTable() {
+            document.getElementById('result-table').innerHTML = "";
+            document.getElementById('empty-state').classList.remove('hidden');
+            pairsAlreadyFound.clear();
+        }
 
         async function scanCoin(symbol, tf) {
             try {
@@ -124,117 +121,83 @@
                 if (klines.length < 200) return;
 
                 const closes = klines.map(k => parseFloat(k[4]));
-                const lastVol = parseFloat(klines[klines.length - 1][7]); 
                 const lastPrice = closes[closes.length - 1];
                 const ema200 = calculateEMA(closes, 200);
                 const rsi = calculateRSI(closes);
 
-                // LOGIKA UTAMA
+                // LOGIKA: Harga di bawah EMA 0-3% & RSI < 30
                 const dist = ((ema200 - lastPrice) / ema200) * 100;
-                const isBelowEma = dist > 0 && dist <= 3;
-                const isRsiOversold = rsi < 30;
-                const isVolGood = lastVol > 1000000; // Minimal 1 Juta USDT
-
-                if (isBelowEma && isRsiOversold && isVolGood) {
-                    renderRow(symbol, lastPrice, ema200, rsi, lastVol, dist.toFixed(2));
+                
+                if (dist > 0 && dist <= 3 && rsi < 30) {
+                    if (!pairsAlreadyFound.has(symbol)) {
+                        playUltimateFahhh(); // Bunyikan suara MyInstants
+                        pairsAlreadyFound.add(symbol);
+                    }
+                    renderRow(symbol, lastPrice, ema200, rsi, dist.toFixed(2));
                     document.getElementById('empty-state').classList.add('hidden');
-                    return true; // Tandai koin ketemu
                 }
-            } catch (e) { console.error("Error: " + symbol, e); }
-            return false;
+            } catch (e) {}
         }
 
-        function renderRow(symbol, price, ema, rsi, vol, dist) {
+        function renderRow(symbol, price, ema, rsi, dist) {
+            if (document.getElementById(`row-${symbol}`)) return;
             const tbody = document.getElementById('result-table');
-            if (document.getElementById(`row-${symbol}`)) return; // No duplikat
-
             const row = document.createElement('tr');
             row.id = `row-${symbol}`;
-            row.className = "found-pulse transition duration-500"; // Pakai animasi pulse hijau
+            row.className = "found-pulse transition duration-1000";
             row.innerHTML = `
-                <td class="p-4 font-bold text-yellow-400">${symbol}</td>
-                <td class="p-4 text-center font-mono">
-                    <div class="text-white">${price.toFixed(price < 1 ? 6 : 4)}</div>
-                    <div class="text-[10px] text-gray-500">EMA: ${ema.toFixed(ema < 1 ? 6 : 4)}</div>
-                </td>
-                <td class="p-4 text-center font-bold ${rsi < 25 ? 'text-red-500' : 'text-orange-400'}">
-                    ${rsi.toFixed(2)}
-                </td>
-                <td class="p-4 text-center text-blue-300 font-mono italic">
-                    $${(vol / 1000000).toFixed(2)}M
-                </td>
-                <td class="p-4 text-center text-green-400 font-bold">
-                    -${dist}%
+                <td class="p-4 font-bold text-yellow-500 tracking-tight">👑 ${symbol}</td>
+                <td class="p-4 text-center font-mono text-xs">
+                    <div class="text-white font-bold">${price.toFixed(price < 1 ? 6 : 4)}</div>
+                    <div class="text-[9px] text-gray-600">EMA: ${ema.toFixed(ema < 1 ? 6 : 4)}</div>
                 </td>
                 <td class="p-4 text-center">
+                    <span class="px-2 py-1 rounded bg-red-900/40 text-red-500 font-bold border border-red-800/50">${rsi.toFixed(2)}</span>
+                </td>
+                <td class="p-4 text-center text-green-400 font-bold italic tracking-tighter">-${dist}%</td>
+                <td class="p-4 text-center flex justify-center gap-2">
                     <a href="https://www.tradingview.com/chart/?symbol=BINANCE:${symbol}" target="_blank" 
-                       class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-md text-xs font-bold transition">
-                       VIEW
-                    </a>
+                       class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-[10px] font-bold shadow-lg transition">TV</a>
+                    <button class="bg-yellow-600 text-black px-3 py-1.5 rounded text-[10px] font-bold shadow-lg uppercase tracking-tighter" onclick="alert('Gaspol Bang!')">Sikat!</button>
                 </td>
             `;
             tbody.prepend(row);
-            
-            // Hilangkan efek pulse setelah 5 detik biar nggak pusing
-            setTimeout(() => row.classList.remove('found-pulse'), 5000);
+            setTimeout(() => row.classList.remove('found-pulse'), 8000);
         }
 
         async function startScanner() {
             if (isScanning) return;
             isScanning = true;
-
             const tf = document.getElementById('tf-select').value;
-            document.getElementById('result-table').innerHTML = ""; 
-            document.getElementById('empty-state').classList.remove('hidden');
-            document.getElementById('scan-status').innerText = "Fetching Pairs...";
-
+            
             try {
                 const resp = await fetch('https://api.binance.com/api/v3/exchangeInfo');
                 const data = await resp.json();
-                const allPairs = data.symbols
-                    .filter(s => s.quoteAsset === 'USDT' && s.status === 'TRADING')
-                    .map(s => s.symbol);
-
-                let koinKetemuDiLoopIni = false;
+                const allPairs = data.symbols.filter(s => s.quoteAsset === 'USDT' && s.status === 'TRADING').map(s => s.symbol);
 
                 for (let i = 0; i < allPairs.length; i++) {
                     const pct = ((i / allPairs.length) * 100).toFixed(0);
                     document.getElementById('progress-bar').style.width = pct + "%";
-                    document.getElementById('scan-status').innerText = `Scan ${tf}: ${allPairs[i]} (${i}/${allPairs.length})`;
-                    
-                    const ketemu = await scanCoin(allPairs[i], tf);
-                    
-                    // Jika ketemu koin BARU, bunyikan suara "Fahhh"
-                    if (ketemu && !lastPairsFound.includes(allPairs[i])) {
-                        koinKetemuDiLoopIni = true;
-                        playFahhhSound(); 
-                        lastPairsFound.push(allPairs[i]); // Catat biar nggak bunyi lagi
-                    }
-                    
-                    await new Promise(r => setTimeout(r, 55)); // Delay anti-ban
+                    document.getElementById('scan-status').innerText = `Searching ${tf}: ${allPairs[i]}`;
+                    await scanCoin(allPairs[i], tf);
+                    await new Promise(r => setTimeout(r, 45)); 
                 }
 
-                // Reset daftar koin lama jika scan selesai, biar loop depan bisa bunyi lagi kalau koinnya masih valid
-                lastPairsFound = lastPairsFound.filter(p => document.getElementById(`row-${p}`));
-
-                document.getElementById('scan-status').innerText = `Selesai (${tf}). Standby 1 Menit...`;
+                document.getElementById('scan-status').innerText = `Scan Selesai. Re-scanning in 30s...`;
                 isScanning = false;
-                setTimeout(startScanner, 60000); // Loop ulang tiap 1 menit
-
+                setTimeout(startScanner, 30000);
             } catch (err) {
-                console.error("Scanner Error:", err);
                 isScanning = false;
                 setTimeout(startScanner, 10000);
             }
         }
 
-        // Listener Timeframe
         document.getElementById('tf-select').addEventListener('change', () => {
             isScanning = false;
+            clearTable();
             startScanner();
         });
 
-        // Jalankan
         startScanner();
     </script>
 </body>
